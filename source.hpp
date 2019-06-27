@@ -19,7 +19,6 @@ namespace oprp {
 
     namespace {
         vector< string > roots;
-        vector< string > rootsx;
 
         void is_valid(const char * s, map<string, struct crypt_data> & c_data) {
             //Rank:  2	cifra(180): Hu9GrIJkNMpr2	senha: 5Im
@@ -45,6 +44,7 @@ namespace oprp {
                     strcpy(stemp, s);
                     stemp[h] = alpha[i];
                     stemp[h+1] = '\0';
+                    
                     is_valid(stemp, c_data);
                     worker_recursive(&stemp[0], h + 1, max, c_data);
                 }
@@ -117,13 +117,11 @@ namespace oprp {
         //cout << "rank: " << rank << ", " << "init: " << init << ", " << "end: " << end << endl;
         
         for(int k = 3; k <= 8; k++) {
-            #pragma omp parallel for num_threads(2) shared(c_data_global, broken)                                                                                                                                                                                                                                                                                                                                                                                                             
+            #pragma omp parallel for num_threads(2) shared(c_data_global, broken)                                                                                                                                                                                                                                                                                                                                                                                                          
             for(int i = init; i <= end; i++) {
                 worker_recursive(roots[i].c_str(), 2, k, c_data_global[omp_get_thread_num()]);
             }
         }
-        
-
     }
 
 } // namespace sort
