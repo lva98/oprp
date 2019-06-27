@@ -11,7 +11,7 @@ namespace oprp {
     int rank;
     int size;
     int passwords_total;
-    map< string, set< string > > passwords_buff;
+    map< string, set< string > > passwords;
     map< string, bool> broken;
 
     string alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz./";
@@ -19,12 +19,12 @@ namespace oprp {
     namespace {
         vector< string > roots;
 
-        void is_valid(string &s, struct crypt_data & c_data) {
+        void is_valid(const char * s, struct crypt_data & c_data) {
+            //Rank:  2	cifra(180): Hu9GrIJkNMpr2	senha: 5Im
             char * result;
-            for(auto & vec : passwords_buff) {
-                result = crypt_r(s.c_str(), vec.first.c_str(), &c_data);
+            for(auto & vec : passwords) {
+                result = crypt_r(s, vec.first.c_str(), &c_data);
 
-                int i = 0;
                 for(auto & str : vec.second) {
                     if(!broken[str]) {
                         if(strcmp(result, str.c_str()) == 0) {
@@ -36,29 +36,34 @@ namespace oprp {
             }
         }
 
-        void worker_recursive(string s, int h, int max, struct crypt_data & c_data) {
+        void worker_recursive(const char * s, int h, int max, struct crypt_data & c_data) {
             if (h < max) {
                 for (int i = 0; i < 64; i++) {
-                    string stemp = s + alpha[i];
-                    //if(rank == size - 1)
+                    char stemp[h+1];
+                    strcpy(stemp, s);
+                    stemp[h] = alpha[i];
+                    stemp[h+1] = '\0';
+
                     cout << stemp << endl;
-                    is_valid(s, c_data);
-                    worker_recursive(stemp, h + 1, max, c_data);
+                    is_valid(stemp, c_data);
+                    worker_recursive(&stemp[0], h + 1, max, c_data);
                 }
             }
         }
 
-        void init_root(string s, int h, struct crypt_data & c_data) {
+        void init_root(const char * s, int h, struct crypt_data & c_data) {
             if(h < 2) {
-                for(int i = 0; i < 65; i++) {
-                    string stemp = s + alpha[i];
+                for(int i = 0; i < 64; i++) {
+                    char stemp[h+1];
+                    strcpy(stemp, s);
+                    stemp[h] = alpha[i];
+                    stemp[h+1] = '\0';
 
-                    //cout << stemp << endl;
                     if(rank == 0)
                         is_valid(stemp, c_data);
 
-                    if(stemp.size() == 2) {
-                        roots.push_back(stemp);
+                    if(h == 1) {
+                        roots.push_back(string(stemp));
                     }
 
                     init_root(stemp, h+1, c_data);
@@ -76,7 +81,7 @@ namespace oprp {
                     string salt = "";
                     salt += line[0];
                     salt += line[1];
-                    passwords_buff[salt].insert(line);
+                    passwords[salt].insert(line);
                     passwords_total++;
                 }
             } else 
@@ -91,7 +96,8 @@ namespace oprp {
         read_entry(file);
         struct crypt_data c_data;
         c_data.initialized = 0;
-        init_root("", 0, c_data);
+        const char * r = "\0";
+        init_root(r, 0, c_data);
     }
 
     void run_recursive() {
@@ -108,12 +114,13 @@ namespace oprp {
         }
 
         //cout << "rank: " << rank << ", init: " << init << ", end: " << end << endl;
-        struct crypt_data c_data;
-        c_data.initialized = 0;
-#pragma omp parallel for num_threads(2) private(c_data)
+        struct crypt_data c_data[2];
+        c_data[0].initialized = 0;
+        c_data[1].initialized = 0;
+#pragma omp parallel for num_threads(2) shared(c_data, broken)
         for(int i = init; i <= end; i++) {
             for(int l = 3; l <= 8; l++ ) {
-                worker_recursive(roots[i], 2, l, c_data);
+                worker_recursive(roots[i].c_str(), 2, l, c_data[omp_get_thread_num()]);
             }
         }
     }
