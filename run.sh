@@ -1,9 +1,9 @@
 echo "---Compilando"
-pkill a.out
-mpic++ main.cpp -fopenmp -lcrypt
+mpic++ main.cpp -fopenmp -lcrypt -o slugger
 
 echo "---Copiando arquivos"
-#scp * client:~/Code/OPRP/
+scp * client:~/Code/OPRP/
+#scp * client1:~/Code/OPRP/
 
-echo "---Execuçao"
-mpirun -machinefile machines -np 1 a.out 
+echo "---Execução"
+mpirun -machinefile machines slugger

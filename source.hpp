@@ -13,57 +13,56 @@ namespace oprp {
     int passwords_total;
     map< string, set< string > > passwords;
     map< string, bool> broken;
+    map<string, struct crypt_data> c_data_global[2];
 
-    string alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz./";
+    string alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/.";
 
     namespace {
         vector< string > roots;
+        vector< string > rootsx;
 
-        void is_valid(const char * s, struct crypt_data & c_data) {
+        void is_valid(const char * s, map<string, struct crypt_data> & c_data) {
             //Rank:  2	cifra(180): Hu9GrIJkNMpr2	senha: 5Im
             char * result;
             for(auto & vec : passwords) {
-                result = crypt_r(s, vec.first.c_str(), &c_data);
+                const char * salt = vec.first.c_str();
+                struct crypt_data * cd = &c_data[vec.first];
+                result = crypt_r(s, salt, cd);
 
                 for(auto & str : vec.second) {
-                    if(!broken[str]) {
-                        if(strcmp(result, str.c_str()) == 0) {
-                            cout << str << " = " << s << endl;
-                            broken[str] = true;
-                        }
+                    if(strcmp(result, str.c_str()) == 0) {
+                        cout << str << " = " << s << endl;
+                        broken[str] = true;
                     }
                 }
             }
         }
 
-        void worker_recursive(const char * s, int h, int max, struct crypt_data & c_data) {
+        void worker_recursive(const char * s, int h, int max, map<string, struct crypt_data> & c_data) {
             if (h < max) {
                 for (int i = 0; i < 64; i++) {
                     char stemp[h+1];
                     strcpy(stemp, s);
                     stemp[h] = alpha[i];
                     stemp[h+1] = '\0';
-
-                    cout << stemp << endl;
                     is_valid(stemp, c_data);
                     worker_recursive(&stemp[0], h + 1, max, c_data);
                 }
             }
         }
 
-        void init_root(const char * s, int h, struct crypt_data & c_data) {
+        void init_root(string s, int h, map<string, struct crypt_data> & c_data) {
             if(h < 2) {
                 for(int i = 0; i < 64; i++) {
-                    char stemp[h+1];
-                    strcpy(stemp, s);
-                    stemp[h] = alpha[i];
-                    stemp[h+1] = '\0';
+                    string stemp = "";
+                    stemp = s + alpha[i];
 
-                    if(rank == 0)
-                        is_valid(stemp, c_data);
+                    if(rank == 0) {
+                        is_valid(stemp.c_str(), c_data);
+                    }
 
                     if(h == 1) {
-                        roots.push_back(string(stemp));
+                        roots.push_back(stemp);
                     }
 
                     init_root(stemp, h+1, c_data);
@@ -88,16 +87,18 @@ namespace oprp {
                 cout << "Erro ao abrir arquivo" << endl;
 
             myfile.close();
+
+            for(auto & vec : passwords) {
+                c_data_global[0][vec.first].initialized = 0;
+                c_data_global[1][vec.first].initialized = 0;
+            }
         }
     }
 
     void start_up(string file) {
         //c_data.initialized = 0;
         read_entry(file);
-        struct crypt_data c_data;
-        c_data.initialized = 0;
-        const char * r = "\0";
-        init_root(r, 0, c_data);
+        init_root("", 0, c_data_global[0]);
     }
 
     void run_recursive() {
@@ -113,16 +114,16 @@ namespace oprp {
             end = roots.size() - 1;
         }
 
-        //cout << "rank: " << rank << ", init: " << init << ", end: " << end << endl;
-        struct crypt_data c_data[2];
-        c_data[0].initialized = 0;
-        c_data[1].initialized = 0;
-#pragma omp parallel for num_threads(2) shared(c_data, broken)
-        for(int i = init; i <= end; i++) {
-            for(int l = 3; l <= 8; l++ ) {
-                worker_recursive(roots[i].c_str(), 2, l, c_data[omp_get_thread_num()]);
+        //cout << "rank: " << rank << ", " << "init: " << init << ", " << "end: " << end << endl;
+        
+        for(int k = 3; k <= 8; k++) {
+            #pragma omp parallel for num_threads(2) shared(c_data_global, broken)                                                                                                                                                                                                                                                                                                                                                                                                             
+            for(int i = init; i <= end; i++) {
+                worker_recursive(roots[i].c_str(), 2, k, c_data_global[omp_get_thread_num()]);
             }
         }
+        
+
     }
 
 } // namespace sort

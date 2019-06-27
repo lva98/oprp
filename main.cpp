@@ -16,7 +16,6 @@ int main(int argc, char* argv[]) {
         oprp::start_up("entry");
         MPI_Barrier(MPI_COMM_WORLD);
         oprp::run_recursive();
-        //cout << omp_get_max_threads() << endl; 
     } catch (MPI::Exception e) {
         std::cout << "MPI ERROR: " << e.Get_error_code() \
         << " - " << e.Get_error_string() \
